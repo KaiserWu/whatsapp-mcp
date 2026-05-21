@@ -13,6 +13,10 @@ def get_db_path() -> str:
     return os.path.join(STORE_DIR, "messages.db")
 
 
+def get_store_db_path() -> str:
+    return os.path.join(STORE_DIR, "whatsapp.db")
+
+
 def is_authenticated() -> bool:
     return os.path.isfile(os.path.join(STORE_DIR, "whatsapp.db"))
 

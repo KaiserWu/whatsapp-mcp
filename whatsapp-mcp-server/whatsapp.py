@@ -7,9 +7,58 @@ import requests
 import json
 import audio
 
-from bridge import get_db_path as _get_db_path
+from bridge import get_db_path as _get_db_path, get_store_db_path as _get_store_db_path
 MESSAGES_DB_PATH = _get_db_path()
+STORE_DB_PATH = _get_store_db_path()
 WHATSAPP_API_BASE_URL = "http://localhost:8080/api"
+
+
+def _normalize_phone(phone: str) -> str:
+    return phone.replace('+', '').replace(' ', '').replace('-', '')
+
+
+def _resolve_phone_to_jids(phone: str) -> List[str]:
+    """Return all JID variants (PN + LID) for a phone number via whatsapp.db."""
+    phone = _normalize_phone(phone)
+    jids = [f"{phone}@s.whatsapp.net"]
+    try:
+        conn = sqlite3.connect(STORE_DB_PATH)
+        row = conn.execute(
+            "SELECT lid, pn FROM whatsmeow_lid_map WHERE pn = ?", (phone,)
+        ).fetchone()
+        if not row:
+            suffix = phone[-10:]
+            row = conn.execute(
+                "SELECT lid, pn FROM whatsmeow_lid_map WHERE pn LIKE ?",
+                (f"%{suffix}",)
+            ).fetchone()
+        if row:
+            lid, stored_pn = row
+            jids.append(f"{lid}@lid")
+            if stored_pn != phone:
+                jids.append(f"{stored_pn}@s.whatsapp.net")
+        conn.close()
+    except Exception:
+        pass
+    return jids
+
+
+def _get_contact_name(phone: str) -> Optional[str]:
+    """Look up a contact's display name in whatsapp.db."""
+    phone = _normalize_phone(phone)
+    try:
+        conn = sqlite3.connect(STORE_DB_PATH)
+        row = conn.execute(
+            """SELECT full_name, push_name FROM whatsmeow_contacts
+               WHERE their_jid = ? OR their_jid LIKE ?""",
+            (f"{phone}@s.whatsapp.net", f"{phone}%")
+        ).fetchone()
+        conn.close()
+        if row:
+            return row[0] or row[1]
+    except Exception:
+        pass
+    return None
 
 @dataclass
 class Message:
@@ -165,8 +214,12 @@ def list_messages(
             params.append(before)
 
         if sender_phone_number:
-            where_clauses.append("messages.sender = ?")
-            params.append(sender_phone_number)
+            jids = _resolve_phone_to_jids(sender_phone_number)
+            jid_placeholders = ','.join('?' * len(jids))
+            where_clauses.append(
+                f"(messages.chat_jid IN ({jid_placeholders}) AND messages.chat_jid NOT LIKE '%@g.us')"
+            )
+            params.extend(jids)
             
         if chat_jid:
             where_clauses.append("messages.chat_jid = ?")
@@ -392,42 +445,59 @@ def list_chats(
 
 
 def search_contacts(query: str) -> List[Contact]:
-    """Search contacts by name or phone number."""
+    """Search contacts by name or phone number (handles LID contacts)."""
+    search_pattern = f'%{query}%'
+    result = []
+    seen_jids: set = set()
+
+    # 1. Search whatsapp.db first — has real names including LID contacts
+    try:
+        conn = sqlite3.connect(STORE_DB_PATH)
+        rows = conn.execute("""
+            SELECT their_jid, full_name, push_name
+            FROM whatsmeow_contacts
+            WHERE (LOWER(full_name) LIKE LOWER(?)
+                   OR LOWER(push_name) LIKE LOWER(?)
+                   OR their_jid LIKE ?)
+              AND their_jid NOT LIKE '%@g.us'
+            ORDER BY full_name, push_name
+            LIMIT 50
+        """, (search_pattern, search_pattern, search_pattern)).fetchall()
+        for jid, full_name, push_name in rows:
+            name = full_name or push_name
+            raw = jid.split('@')[0]
+            if jid.endswith('@lid'):
+                pn_row = conn.execute(
+                    "SELECT pn FROM whatsmeow_lid_map WHERE lid = ?", (raw,)
+                ).fetchone()
+                phone = pn_row[0] if pn_row else raw
+            else:
+                phone = raw
+            if jid not in seen_jids:
+                seen_jids.add(jid)
+                result.append(Contact(phone_number=phone, name=name, jid=jid))
+        conn.close()
+    except Exception as e:
+        print(f"Store DB search error: {e}")
+
+    # 2. Fallback: messages.db (catches contacts not yet in whatsapp.db)
     try:
         conn = sqlite3.connect(MESSAGES_DB_PATH)
-        cursor = conn.cursor()
-        
-        # Split query into characters to support partial matching
-        search_pattern = '%' +query + '%'
-        
-        cursor.execute("""
-            SELECT DISTINCT 
-                jid,
-                name
-            FROM chats
-            WHERE 
-                (LOWER(name) LIKE LOWER(?) OR LOWER(jid) LIKE LOWER(?))
-                AND jid NOT LIKE '%@g.us'
-            ORDER BY name, jid
-            LIMIT 50
-        """, (search_pattern, search_pattern))
-        
-        contacts = cursor.fetchall()
-        
-        result = []
-        for contact_data in contacts:
-            contact = Contact(
-                phone_number=contact_data[0].split('@')[0],
-                name=contact_data[1],
-                jid=contact_data[0]
-            )
-            result.append(contact)
-            
-        return result
-        
-    except sqlite3.Error as e:
-        print(f"Database error: {e}")
-        return []
+        rows = conn.execute("""
+            SELECT DISTINCT jid, name FROM chats
+            WHERE (LOWER(name) LIKE LOWER(?) OR LOWER(jid) LIKE LOWER(?))
+              AND jid NOT LIKE '%@g.us'
+            ORDER BY name, jid LIMIT 50
+        """, (search_pattern, search_pattern)).fetchall()
+        for jid, name in rows:
+            if jid not in seen_jids:
+                seen_jids.add(jid)
+                result.append(Contact(phone_number=jid.split('@')[0], name=name, jid=jid))
+        conn.close()
+    except Exception as e:
+        print(f"Messages DB search error: {e}")
+
+    return result
     finally:
         if 'conn' in locals():
             conn.close()
@@ -582,46 +652,41 @@ def get_chat(chat_jid: str, include_last_message: bool = True) -> Optional[Chat]
 
 
 def get_direct_chat_by_contact(sender_phone_number: str) -> Optional[Chat]:
-    """Get chat metadata by sender phone number."""
+    """Get chat metadata by sender phone number (handles LID contacts)."""
+    jids = _resolve_phone_to_jids(sender_phone_number)
     try:
         conn = sqlite3.connect(MESSAGES_DB_PATH)
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT 
-                c.jid,
-                c.name,
-                c.last_message_time,
-                m.content as last_message,
-                m.sender as last_sender,
-                m.is_from_me as last_is_from_me
+        placeholders = ','.join('?' * len(jids))
+        chat_data = conn.execute(f"""
+            SELECT c.jid, c.name, c.last_message_time,
+                   m.content, m.sender, m.is_from_me
             FROM chats c
-            LEFT JOIN messages m ON c.jid = m.chat_jid 
+            LEFT JOIN messages m ON c.jid = m.chat_jid
                 AND c.last_message_time = m.timestamp
-            WHERE c.jid LIKE ? AND c.jid NOT LIKE '%@g.us'
+            WHERE c.jid IN ({placeholders}) AND c.jid NOT LIKE '%@g.us'
             LIMIT 1
-        """, (f"%{sender_phone_number}%",))
-        
-        chat_data = cursor.fetchone()
-        
+        """, jids).fetchone()
+        conn.close()
+
         if not chat_data:
             return None
-            
+
+        # Try to resolve a human-readable name if only a numeric ID is stored
+        name = chat_data[1]
+        if not name or name.replace('@lid', '').replace('@s.whatsapp.net', '').isdigit():
+            name = _get_contact_name(sender_phone_number) or name
+
         return Chat(
             jid=chat_data[0],
-            name=chat_data[1],
+            name=name,
             last_message_time=datetime.fromisoformat(chat_data[2]) if chat_data[2] else None,
             last_message=chat_data[3],
             last_sender=chat_data[4],
             last_is_from_me=chat_data[5]
         )
-        
     except sqlite3.Error as e:
         print(f"Database error: {e}")
         return None
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 def send_message(recipient: str, message: str) -> Tuple[bool, str]:
     try:
