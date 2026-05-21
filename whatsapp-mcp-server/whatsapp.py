@@ -498,9 +498,6 @@ def search_contacts(query: str) -> List[Contact]:
         print(f"Messages DB search error: {e}")
 
     return result
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 
 def get_contact_chats(jid: str, limit: int = 20, page: int = 0) -> List[Chat]:
