@@ -39,6 +39,7 @@ rm -f whatsapp-mcp.dxt
 zip -r whatsapp-mcp.dxt \
   manifest.json \
   whatsapp-mcp-server/ \
+  --exclude "whatsapp-mcp-server/.venv/*" \
   --exclude "whatsapp-mcp-server/__pycache__/*" \
   --exclude "whatsapp-mcp-server/*.pyc" \
   --exclude "whatsapp-mcp-server/.gitignore" \

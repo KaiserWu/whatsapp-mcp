@@ -20,11 +20,11 @@
     "mcp_config": {
       "command": "uv",
       "args": [
+        "run",
         "--directory",
         "${__dirname}/whatsapp-mcp-server",
         "--python",
         "3.13",
-        "run",
         "main.py"
       ]
     }
