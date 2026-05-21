@@ -8,3 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Compiled Go binaries (built by build-dxt.sh)
+bin/*
+!bin/.gitkeep

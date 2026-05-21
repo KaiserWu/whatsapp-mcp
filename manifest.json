@@ -1,0 +1,42 @@
+{
+  "dxt_version": "0.1",
+  "name": "whatsapp-mcp",
+  "display_name": "WhatsApp",
+  "version": "1.0.0",
+  "description": "Connect Claude to your personal WhatsApp account — read messages, search contacts, and send messages or media.",
+  "author": {
+    "name": "KaiserWu",
+    "url": "https://github.com/KaiserWu"
+  },
+  "repository": "https://github.com/KaiserWu/whatsapp-mcp",
+  "license": "MIT",
+  "keywords": ["whatsapp", "messaging", "chat"],
+  "server": {
+    "type": "python",
+    "entry_point": "whatsapp-mcp-server/main.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "${__dirname}/whatsapp-mcp-server",
+        "run",
+        "main.py"
+      ]
+    }
+  },
+  "tools": [
+    {"name": "search_contacts",          "description": "Search WhatsApp contacts by name or phone number"},
+    {"name": "list_messages",            "description": "Get WhatsApp messages with optional filters and context"},
+    {"name": "list_chats",               "description": "List available WhatsApp chats"},
+    {"name": "get_chat",                 "description": "Get metadata for a specific chat"},
+    {"name": "get_direct_chat_by_contact", "description": "Find a direct chat by phone number"},
+    {"name": "get_contact_chats",        "description": "List all chats involving a contact"},
+    {"name": "get_last_interaction",     "description": "Get the most recent message with a contact"},
+    {"name": "get_message_context",      "description": "Get surrounding messages around a specific message"},
+    {"name": "send_message",             "description": "Send a WhatsApp text message"},
+    {"name": "send_file",                "description": "Send an image, video, document, or raw audio via WhatsApp"},
+    {"name": "send_audio_message",       "description": "Send an audio file as a WhatsApp voice message"},
+    {"name": "download_media",           "description": "Download media from a WhatsApp message"},
+    {"name": "get_setup_instructions",   "description": "Get QR-code authentication instructions for first-time setup"}
+  ]
+}

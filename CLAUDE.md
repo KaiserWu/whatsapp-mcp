@@ -78,9 +78,38 @@ rm whatsapp-bridge/store/messages.db whatsapp-bridge/store/whatsapp.db
 cd whatsapp-bridge && go run main.go
 ```
 
-## MCP client configuration
+## Claude Desktop Extension (.dxt)
 
-The MCP server is registered in the client config (Claude Desktop or Cursor) using `uv`:
+The project can be packaged as a self-contained Claude Desktop Extension. The Python MCP server automatically starts the Go bridge as a subprocess; bridge logs go to `~/.whatsapp-mcp/bridge.log`.
+
+### Build the extension
+
+```bash
+./build-dxt.sh
+```
+
+This compiles the Go bridge for the current platform (requires CGO/C compiler) and produces `whatsapp-mcp.dxt`.
+
+### Install
+
+Double-click `whatsapp-mcp.dxt` while Claude Desktop is running.
+
+### First-time authentication
+
+The Go bridge stores all data in `~/.whatsapp-mcp/store/`. On first run it needs QR-code authentication — ask Claude: *"Get setup instructions for WhatsApp"* to receive step-by-step instructions.
+
+### Data directory layout
+
+```
+~/.whatsapp-mcp/
+  bridge.log           ← bridge stdout/stderr
+  store/
+    messages.db        ← message history (SQLite)
+    whatsapp.db        ← WhatsApp session
+    <chat_jid>/        ← downloaded media files
+```
+
+## Manual MCP client configuration (development)
 
 ```json
 {
@@ -92,3 +121,5 @@ The MCP server is registered in the client config (Claude Desktop or Cursor) usi
   }
 }
 ```
+
+In development mode the Python server falls back to the compiled binary at `whatsapp-bridge/whatsapp-client` if no bundled binary is found in `whatsapp-mcp-server/bin/`.

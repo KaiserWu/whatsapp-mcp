@@ -7,7 +7,8 @@ import requests
 import json
 import audio
 
-MESSAGES_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'whatsapp-bridge', 'store', 'messages.db')
+from bridge import get_db_path as _get_db_path
+MESSAGES_DB_PATH = _get_db_path()
 WHATSAPP_API_BASE_URL = "http://localhost:8080/api"
 
 @dataclass

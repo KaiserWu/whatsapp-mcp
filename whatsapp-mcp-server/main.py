@@ -1,3 +1,9 @@
+import os
+import bridge as _bridge
+
+# Start Go bridge automatically; logs go to ~/.whatsapp-mcp/bridge.log
+_bridge.start_bridge()
+
 from typing import List, Dict, Any, Optional
 from mcp.server.fastmcp import FastMCP
 from whatsapp import (
@@ -245,6 +251,38 @@ def download_media(message_id: str, chat_jid: str) -> Dict[str, Any]:
             "success": False,
             "message": "Failed to download media"
         }
+
+@mcp.tool()
+def get_setup_instructions() -> str:
+    """Get instructions for first-time WhatsApp QR-code authentication.
+    Use this when WhatsApp is not connected or needs re-authentication.
+    """
+    log_path = os.path.join(_bridge.DATA_DIR, "bridge.log")
+    binary = _bridge.get_bridge_binary()
+
+    if _bridge.is_authenticated():
+        return (
+            "WhatsApp is already authenticated. The bridge is running in the background.\n"
+            f"Bridge log: {log_path}"
+        )
+
+    if binary:
+        return (
+            "WhatsApp is not yet authenticated. To scan the QR code:\n\n"
+            f"1. Stop Claude Desktop\n"
+            f"2. Open a terminal and run:\n"
+            f"   {binary}\n"
+            f"3. Scan the QR code with your WhatsApp mobile app\n"
+            f"4. Wait for 'Connected' confirmation, then press Ctrl+C\n"
+            f"5. Restart Claude Desktop\n\n"
+            f"Bridge log (for troubleshooting): {log_path}"
+        )
+
+    return (
+        "Go bridge binary not found. Please run build-dxt.sh to build it, "
+        "then restart Claude Desktop."
+    )
+
 
 if __name__ == "__main__":
     # Initialize and run the server
