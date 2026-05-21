@@ -8,7 +8,10 @@
     "name": "KaiserWu",
     "url": "https://github.com/KaiserWu"
   },
-  "repository": "https://github.com/KaiserWu/whatsapp-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KaiserWu/whatsapp-mcp"
+  },
   "license": "MIT",
   "keywords": ["whatsapp", "messaging", "chat"],
   "server": {
@@ -19,6 +22,8 @@
       "args": [
         "--directory",
         "${__dirname}/whatsapp-mcp-server",
+        "--python",
+        "3.13",
         "run",
         "main.py"
       ]
