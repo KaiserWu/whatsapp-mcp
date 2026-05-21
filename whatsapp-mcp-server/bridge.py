@@ -66,6 +66,14 @@ def start_bridge() -> subprocess.Popen | None:
 
     os.makedirs(STORE_DIR, exist_ok=True)
 
+    # Create a symlink in DATA_DIR so users can run the binary from a stable path
+    symlink_path = os.path.join(DATA_DIR, os.path.basename(binary))
+    if not os.path.exists(symlink_path):
+        try:
+            os.symlink(binary, symlink_path)
+        except Exception:
+            pass
+
     log_path = os.path.join(DATA_DIR, "bridge.log")
     log_file = open(log_path, "a")
 

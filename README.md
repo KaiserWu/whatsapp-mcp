@@ -54,6 +54,8 @@ WA_PHONE=+491234567890 ~/.whatsapp-mcp/whatsapp-bridge-darwin-arm64
 ```
 Enter the displayed 8-digit code in WhatsApp → Linked Devices → Link with phone number.
 
+> The symlink at `~/.whatsapp-mcp/` is created automatically the first time Claude Desktop starts the extension.
+
 All data is stored in `~/.whatsapp-mcp/store/`. Bridge logs are at `~/.whatsapp-mcp/bridge.log`.
 
 ---
