@@ -1,6 +1,7 @@
 import atexit
 import os
 import platform
+import socket
 import subprocess
 import sys
 import time
@@ -49,8 +50,16 @@ def get_bridge_binary() -> str | None:
 _bridge_process: subprocess.Popen | None = None
 
 
+def _is_port_in_use(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
 def start_bridge() -> subprocess.Popen | None:
     global _bridge_process
+
+    if _is_port_in_use(8080):
+        return None
 
     binary = get_bridge_binary()
     if not binary:
