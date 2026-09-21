@@ -6,3 +6,6 @@ whatsapp-mcp.dxt
 store/whatsapp.db-shm
 store/whatsapp.db-wal
 whatsapp-bridge/whatsapp-client
+# Downloaded chat media stays out of the repo. *.db already covers the
+# databases, but store/<JID>/ holds personal photos, audio and documents.
+whatsapp-bridge/store/
