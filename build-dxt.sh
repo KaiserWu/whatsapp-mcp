@@ -43,7 +43,8 @@ zip -r whatsapp-mcp.dxt \
   --exclude "whatsapp-mcp-server/__pycache__/*" \
   --exclude "whatsapp-mcp-server/*.pyc" \
   --exclude "whatsapp-mcp-server/.gitignore" \
-  --exclude "whatsapp-mcp-server/.python-version"
+  --exclude "whatsapp-mcp-server/.python-version" \
+  --exclude "whatsapp-mcp-server/bin/store/*"
 
 echo ""
 echo "✓ Done: whatsapp-mcp.dxt"
